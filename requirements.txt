@@ -1,0 +1,4 @@
+keyboard==0.13.5
+openvr==1.23.701
+pandas==2.0.1
+PySimpleGUI==4.60.5

@@ -1,0 +1,68 @@
+--- triad_openvr.py	Fri Sep  8 16:49:40 2023
++++ triad_openvr.py	Fri Sep  8 16:54:38 2023
+@@ -25,6 +25,9 @@
+ def convert_to_quaternion(pose_mat):
+     # Per issue #2, adding a abs() so that sqrt only results in real numbers
+     r_w = math.sqrt(abs(1+pose_mat[0][0]+pose_mat[1][1]+pose_mat[2][2]))/2
++    if r_w == 0:
++        r_w = 0.0001
++
+     r_x = (pose_mat[2][1]-pose_mat[1][2])/(4*r_w)
+     r_y = (pose_mat[0][2]-pose_mat[2][0])/(4*r_w)
+     r_z = (pose_mat[1][0]-pose_mat[0][1])/(4*r_w)
+@@ -77,16 +80,16 @@
+ 
+     @lru_cache(maxsize=None)
+     def get_serial(self):
+-        return self.vr.getStringTrackedDeviceProperty(self.index, openvr.Prop_SerialNumber_String)
++        return self.vr.getStringTrackedDeviceProperty(self.index, openvr.Prop_SerialNumber_String).decode('utf-8')
+ 
+     def get_model(self):
+-        return self.vr.getStringTrackedDeviceProperty(self.index, openvr.Prop_ModelNumber_String)
++        return self.vr.getStringTrackedDeviceProperty(self.index, openvr.Prop_ModelNumber_String).decode('utf-8')
+ 
+     def get_battery_percent(self):
+-        return self.vr.getFloatTrackedDeviceProperty(self.index, openvr.Prop_DeviceBatteryPercentage_Float)
++        return self.vr.getFloatTrackedDeviceProperty(self.index, openvr.Prop_DeviceBatteryPercentage_Float)[0]
+ 
+     def is_charging(self):
+-        return self.vr.getBoolTrackedDeviceProperty(self.index, openvr.Prop_DeviceIsCharging_Bool)
++        return self.vr.getBoolTrackedDeviceProperty(self.index, openvr.Prop_DeviceIsCharging_Bool)[0]
+ 
+ 
+     def sample(self,num_samples,sample_rate):
+@@ -109,7 +112,7 @@
+             return convert_to_euler(pose[self.index].mDeviceToAbsoluteTracking)
+         else:
+             return None
+-
++        
+     def get_pose_matrix(self, pose=None):
+         if pose == None:
+             pose = get_pose(self.vr)
+@@ -137,10 +140,8 @@
+     def get_pose_quaternion(self, pose=None):
+         if pose == None:
+             pose = get_pose(self.vr)
+-        if pose[self.index].bPoseIsValid:
+-            return convert_to_quaternion(pose[self.index].mDeviceToAbsoluteTracking)
+-        else:
+-            return None
++        pose = self.vr.getDeviceToAbsoluteTrackingPose(openvr.TrackingUniverseStanding, 0,openvr.k_unMaxTrackedDeviceCount)
++        return convert_to_quaternion(pose[self.index].mDeviceToAbsoluteTracking)
+ 
+     def controller_state_to_dict(self, pControllerState):
+         # This function is graciously borrowed from https://gist.github.com/awesomebytes/75daab3adb62b331f21ecf3a03b3ab46
+@@ -175,12 +176,6 @@
+         result, state = self.vr.getControllerState(self.index)
+         return self.controller_state_to_dict(state)
+ 
+-    def trigger_haptic_pulse(self, duration_micros=1000, axis_id=0):
+-        """
+-        Causes devices with haptic feedback to vibrate for a short time.
+-        """
+-        self.vr.triggerHapticPulse(self.index ,axis_id, duration_micros)
+-
+ class vr_tracking_reference(vr_tracked_device):
+     def get_mode(self):
+         return self.vr.getStringTrackedDeviceProperty(self.index,openvr.Prop_ModeLabel_String).decode('utf-8').upper()
